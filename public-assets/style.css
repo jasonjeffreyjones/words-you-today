@@ -1,0 +1,12 @@
+body {
+  background: #f8f9fa;
+}
+
+.signifier-card {
+  min-height: 22rem;
+  justify-content: center;
+}
+
+.newsletter-frame iframe {
+  max-width: 100%;
+}

@@ -1,2 +1,14 @@
-id_rsa_jasonjones_ninja
-*.txt
+.DS_Store
+.env
+*.log
+
+# Local deployment helpers or overrides
+deploy.sh
+deploy.local.sh
+
+# Optional local secret file if you ever use one during development
+wyt-config.php
+
+# Local notes and private documentation
+CODEX_INFORMATION.md
+README.md
