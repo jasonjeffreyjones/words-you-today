@@ -9,7 +9,7 @@ define('APP_TIMEZONE', 'UTC');
 
 date_default_timezone_set(APP_TIMEZONE);
 
-$externalConfig = dirname(__DIR__) . '../../wyt-config.php';
+$externalConfig = dirname(__DIR__, 3) . '/wyt-config.php';
 
 if (!is_file($externalConfig)) {
     http_response_code(500);

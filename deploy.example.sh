@@ -21,7 +21,10 @@ rsync -avz --delete \
   --exclude '.DS_Store' \
   --exclude '.env' \
   --exclude '*.log' \
+  --exclude 'deploy.sh' \
   --exclude 'deploy.local.sh' \
+  --exclude 'CODEX_JASON_NOTES.md' \
+  --exclude 'CODEX_INFORMATION.md' \
   --exclude 'wyt-config.php' \
   --exclude 'wyt-config.example.php' \
   "$LOCAL_PATH" \
