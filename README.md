@@ -10,12 +10,16 @@ Users answer with a swipe or a button tap. Over time, those responses create a p
 
 ## Status
 
-Version 1.0 is live in production and covers the core flow:
+Version 1.1 adds account-management and data-export improvements on top of the core flow:
 
 - account creation and login
+- indefinite login until intentional logout
+- change email and password
+- forgot/reset password flow
 - one-signifier-at-a-time response flow
 - yes/no recording by user and day
 - basic personal stats
+- personal CSV data export
 
 ## Stack
 
@@ -36,9 +40,11 @@ Words You Today is journal-like in its long-term personal value, but it removes 
 - `wyt.php`: main response screen
 - `answer.php`: JSON endpoint for saving a response and returning the next signifier
 - `signup.php`, `login.php`, `logout.php`, `account.php`, `stats.php`: user/account pages
+- `forgot-password.php`, `reset-password.php`, `download-my-data.php`: account recovery and data export
 - `includes/`: configuration, database, auth, and helper logic
 - `templates/`: shared page templates
-- `sql/schema.sql`: initial database schema
+- `sql/schema.sql`: full schema for fresh installs
+- `sql/migrations/`: incremental production-safe schema changes
 - `public-assets/`: minimal CSS
 
 ## Shared Hosting Setup
@@ -61,6 +67,7 @@ define('DB_HOST', 'localhost');
 define('DB_NAME', 'words_you_today');
 define('DB_USER', 'your_db_user');
 define('DB_PASS', 'your_real_password');
+define('WYT_EXPORT_DIR', '/home/youraccount/wyt-exports');
 ```
 
 ## Deployment
@@ -80,6 +87,6 @@ The intention is to provide enough value to the user, that they are happy to sha
 
 See `founding-statement.php` for the project’s founding statement.
 
-Developed by [Dr. Jason Jeffrey Jones](https://www.jasonjones.ninja)
+Developed by [Dr. Jason Jeffrey Jones](https://jasonjones.ninja)
 
-Use the app at [https://www.jasonjones.ninja/words-you-today](https://www.jasonjones.ninja/words-you-today)
+Use the app at [https://jasonjones.ninja/words-you-today](https://jasonjones.ninja/words-you-today)

@@ -5,6 +5,40 @@ CREATE TABLE users (
     created_at DATETIME NOT NULL
 );
 
+CREATE TABLE user_remember_tokens (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    selector VARCHAR(24) NOT NULL UNIQUE,
+    token_hash CHAR(64) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL,
+    KEY idx_remember_user (user_id),
+    CONSTRAINT fk_user_remember_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE password_reset_tokens (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL,
+    KEY idx_password_reset_user (user_id),
+    CONSTRAINT fk_password_reset_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE user_data_exports (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL UNIQUE,
+    status ENUM('preparing', 'ready', 'failed') NOT NULL DEFAULT 'preparing',
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(1000) NOT NULL,
+    generated_at DATETIME NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    KEY idx_user_data_exports_status (status),
+    CONSTRAINT fk_user_data_exports_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE signifiers (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     text VARCHAR(255) NOT NULL,

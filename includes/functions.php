@@ -9,6 +9,11 @@ function start_session_if_needed(): void
     }
 }
 
+function base_url(): string
+{
+    return APP_URL;
+}
+
 function h(?string $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');

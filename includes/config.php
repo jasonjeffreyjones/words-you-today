@@ -26,3 +26,7 @@ foreach ($requiredConstants as $constantName) {
         exit('External configuration is incomplete.');
     }
 }
+
+if (!defined('WYT_EXPORT_DIR')) {
+    define('WYT_EXPORT_DIR', dirname(__DIR__, 3) . '/wyt-exports');
+}

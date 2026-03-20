@@ -2,6 +2,40 @@ body {
   background: #f8f9fa;
 }
 
+.eyebrow {
+  color: #7a4b12;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-intro {
+  border-radius: 1rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.auth-intro-login {
+  background: linear-gradient(135deg, #f4f7ff 0%, #e7eefc 100%);
+}
+
+.auth-intro-signup {
+  background: linear-gradient(135deg, #fff4e7 0%, #ffe6c7 100%);
+}
+
+.auth-card {
+  border: 0;
+  border-top: 0.35rem solid transparent;
+}
+
+.auth-card-login {
+  border-top-color: #4f6db8;
+}
+
+.auth-card-signup {
+  border-top-color: #c97711;
+}
+
 .signifier-card {
   min-height: 22rem;
   justify-content: center;
