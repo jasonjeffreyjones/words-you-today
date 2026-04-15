@@ -27,7 +27,7 @@ After providng some signifier resposonses, users can explore their data and comp
 Right now I can foresee several main pieces of the structure.
 1) Home contains a welcome message.  Greet the user if they are logged in.  A brief explanation of how the app works.  A big, inviting Start button that sends the user to the main WYT interface.
 2) WYT contains the main interface.
-In the main interface, the user will be shown one identity signifier and asked to endorse it or not.  In other words, the user is asked "Does <signifier> describe you today?"
+In the main interface, the user will be shown one identity signifier and asked to endorse it or not.  In other words, the user is asked "Does this describe you today?"
 They swipe to answer Yes or No.  Swipe left (i.e. right-to-left) to reject.  Swipe right (i.e. left-to-right) to endorse.  There are button options also.
 A feature for later is Skip.  The user may swipe down to Skip, and nothing is recorded in the database.
 Then another signifier is presented.
@@ -35,7 +35,7 @@ The database contains a list of identity signifiers.  The list includes words, p
 Signifiers are chosenly randomly.  We will choose a random permutation of the identity signifiers for each user each day.  A user should not see a repeat within a day.
 Eventually, I think we need to batch/cache responses instead of making a database write for every swipe.  Let's keep it simple to start, but keep database load in mind.
 3) My Stats contains a page of numbers that will be interesting to the user.  For example, their total number of signifiers swiped and their Yes percentage.
-4) Fun contains links to (later-to-implemented) features only available to Paid users.  Matchy-Matchy allows users to invite one other existing user to compare data.  Predicted Probabilities is a feature a Paid user can turn on; it shows the predicted probability of Yes after each response on the main WYT interface.
+4) Fun contains links to (later-to-implemented) features only available to Paid users.  Matchy-Matchy allows users to invite one other existing user to compare data.  Predicted Probabilities is a feature a Paid user can turn on; it shows the predicted probability of Yes after each response on the main WYT interface.  Suggest Signifier allows a user to suggest a signifier to be added to the list for everyone.
 5) Account settings contains typical account things: signup, login, forgot password, change password.
 
 The URL to use Words You Today is https://jasonjones.ninja/words-you-today/

@@ -1,6 +1,7 @@
 .DS_Store
 .env
 *.log
+.codex
 
 # Local deployment helpers or overrides
 deploy.sh
@@ -8,7 +9,3 @@ deploy.local.sh
 
 # Optional local secret file if you ever use one during development
 wyt-config.php
-
-# Local notes and private documentation
-CODEX_INFORMATION.md
-CODEX_JASON_NOTES.md

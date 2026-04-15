@@ -89,5 +89,84 @@ function fetch_user_stats(int $userId): array
         'active_days' => (int) ($stats['active_days'] ?? 0),
         'responses_today' => (int) ($stats['responses_today'] ?? 0),
         'yes_percentage' => $total > 0 ? round(($yesCount / $total) * 100, 1) : 0.0,
+        'milestone_progress' => build_response_milestone_progress($total),
+    ];
+}
+
+function build_response_milestone_progress(int $totalResponses): array
+{
+    $milestones = [
+        [
+            'key' => '1000',
+            'threshold' => 1000,
+            'label' => '1,000',
+            'emoji' => "\xF0\x9F\xA5\x89",
+            'tone' => 'bronze',
+        ],
+        [
+            'key' => '2000',
+            'threshold' => 2000,
+            'label' => '2,000',
+            'emoji' => "\xF0\x9F\xA5\x88",
+            'tone' => 'silver',
+        ],
+        [
+            'key' => '3000',
+            'threshold' => 3000,
+            'label' => '3,000',
+            'emoji' => "\xF0\x9F\xA5\x87",
+            'tone' => 'gold',
+        ],
+        [
+            'key' => '4000',
+            'threshold' => 4000,
+            'label' => '4,000+',
+            'emoji' => "\xF0\x9F\x92\x8E",
+            'tone' => 'diamond',
+        ],
+    ];
+
+    $previousFloor = 0;
+    $nextTarget = 1000;
+    $nextTargetLabel = '1,000';
+
+    if ($totalResponses >= 4000) {
+        $previousFloor = 3000;
+        $nextTarget = 4000;
+        $nextTargetLabel = '4,000+';
+    } elseif ($totalResponses >= 3000) {
+        $previousFloor = 3000;
+        $nextTarget = 4000;
+        $nextTargetLabel = '4,000';
+    } elseif ($totalResponses >= 2000) {
+        $previousFloor = 2000;
+        $nextTarget = 3000;
+        $nextTargetLabel = '3,000';
+    } elseif ($totalResponses >= 1000) {
+        $previousFloor = 1000;
+        $nextTarget = 2000;
+        $nextTargetLabel = '2,000';
+    }
+
+    $bandSize = max(1, $nextTarget - $previousFloor);
+    $progressRaw = $totalResponses >= 4000 ? 100 : (($totalResponses - $previousFloor) / $bandSize) * 100;
+    $progressPercent = max(0, min(100, round($progressRaw, 1)));
+    $responsesRemaining = $totalResponses >= 4000 ? 0 : max(0, $nextTarget - $totalResponses);
+
+    foreach ($milestones as $index => $milestone) {
+        $milestones[$index]['earned'] = $totalResponses >= $milestone['threshold'];
+    }
+
+    return [
+        'total_label' => number_format($totalResponses),
+        'previous_floor' => $previousFloor,
+        'previous_floor_label' => number_format($previousFloor),
+        'next_target' => $nextTarget,
+        'next_target_label' => $nextTargetLabel,
+        'progress_percent' => $progressPercent,
+        'responses_remaining' => $responsesRemaining,
+        'responses_remaining_label' => number_format($responsesRemaining),
+        'milestones' => $milestones,
+        'is_top_tier' => $totalResponses >= 4000,
     ];
 }

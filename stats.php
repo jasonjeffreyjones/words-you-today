@@ -25,6 +25,17 @@ if (is_post_request()) {
 
         redirect('stats.php');
     }
+
+    if ($action === 'update_export') {
+        try {
+            prepare_user_export((int) $user['id']);
+            set_flash('success', 'Your data export was updated and is ready to download.');
+        } catch (Throwable $exception) {
+            set_flash('danger', 'Unable to update your data export right now.');
+        }
+
+        redirect('stats.php');
+    }
 }
 
 $stats = fetch_user_stats((int) $user['id']);
