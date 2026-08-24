@@ -2,6 +2,7 @@ CREATE TABLE users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    auth_version INT UNSIGNED NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL
 );
 
@@ -24,6 +25,16 @@ CREATE TABLE password_reset_tokens (
     created_at DATETIME NOT NULL,
     KEY idx_password_reset_user (user_id),
     CONSTRAINT fk_password_reset_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE password_reset_attempts (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    email_hash CHAR(64) NOT NULL,
+    ip_hash CHAR(64) NOT NULL,
+    requested_at DATETIME NOT NULL,
+    KEY idx_password_reset_attempt_email (email_hash, requested_at),
+    KEY idx_password_reset_attempt_ip (ip_hash, requested_at),
+    KEY idx_password_reset_attempt_time (requested_at)
 );
 
 CREATE TABLE user_data_exports (

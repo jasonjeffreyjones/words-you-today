@@ -6,12 +6,31 @@ require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 
+send_sensitive_page_headers();
+
 if (current_user() !== null) {
     redirect('account.php');
 }
 
-$token = trim((string) ($_GET['token'] ?? $_POST['token'] ?? ''));
-$resetRequest = $token === '' ? null : find_password_reset_request($token);
+start_session_if_needed();
+
+if (array_key_exists('token', $_GET)) {
+    $token = trim((string) $_GET['token']);
+    unset($_SESSION['password_reset_token_hash']);
+
+    if (find_password_reset_request($token) !== null) {
+        $_SESSION['password_reset_token_hash'] = hash('sha256', $token);
+    }
+
+    redirect('reset-password.php');
+}
+
+$tokenHash = (string) ($_SESSION['password_reset_token_hash'] ?? '');
+$resetRequest = $tokenHash === '' ? null : find_password_reset_request_by_hash($tokenHash);
+
+if ($resetRequest === null) {
+    unset($_SESSION['password_reset_token_hash']);
+}
 
 if (is_post_request()) {
     verify_csrf();
@@ -21,26 +40,28 @@ if (is_post_request()) {
 
     if ($resetRequest === null) {
         set_flash('danger', 'That password reset link is invalid or has expired.');
+        redirect('reset-password.php');
     } elseif (strlen($password) < 8) {
         set_flash('danger', 'Password must be at least 8 characters.');
     } elseif (!hash_equals($password, $confirmPassword)) {
         set_flash('danger', 'Password and confirmation did not match.');
     } else {
-        update_user_password((int) $resetRequest['user_id'], $password);
-        delete_password_reset_tokens_for_user((int) $resetRequest['user_id']);
-        $user = find_user_by_id((int) $resetRequest['user_id']);
+        $resetUser = reset_password_with_token_hash($tokenHash, $password);
 
-        if ($user !== null) {
-            login_user($user);
+        if ($resetUser === null) {
+            unset($_SESSION['password_reset_token_hash']);
+            set_flash('danger', 'That password reset link is invalid or has expired.');
+            redirect('reset-password.php');
+        } else {
+            unset($_SESSION['password_reset_token_hash']);
+            wyt_mail_send_password_changed((string) $resetUser['email']);
+            set_flash('success', 'Your password has been reset. Please log in with your new password.');
+            redirect('login.php');
         }
-
-        set_flash('success', 'Your password has been reset.');
-        redirect('account.php');
     }
 }
 
 render('reset-password', [
     'pageTitle' => 'Reset Password',
-    'token' => $token,
     'resetRequest' => $resetRequest,
 ]);

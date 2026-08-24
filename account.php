@@ -46,6 +46,7 @@ if (is_post_request()) {
 
             if ($updatedUser !== null) {
                 login_user($updatedUser);
+                wyt_mail_send_password_changed((string) $updatedUser['email']);
             }
 
             set_flash('success', 'Your password has been updated.');

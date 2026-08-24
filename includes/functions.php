@@ -5,6 +5,18 @@ declare(strict_types=1);
 function start_session_if_needed(): void
 {
     if (session_status() !== PHP_SESSION_ACTIVE) {
+        $cookieParams = session_get_cookie_params();
+        $secureRequest = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['SERVER_PORT'] ?? null) === '443');
+
+        ini_set('session.use_strict_mode', '1');
+        session_set_cookie_params(
+            (int) $cookieParams['lifetime'],
+            (string) $cookieParams['path'],
+            (string) $cookieParams['domain'],
+            (bool) $cookieParams['secure'] || $secureRequest,
+            true
+        );
         session_start();
     }
 }
@@ -33,6 +45,21 @@ function redirect(string $path): void
 function is_post_request(): bool
 {
     return ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
+}
+
+function request_ip_address(): string
+{
+    $address = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+
+    return filter_var($address, FILTER_VALIDATE_IP) === false ? 'unknown' : $address;
+}
+
+function send_sensitive_page_headers(): void
+{
+    header('Cache-Control: no-store, max-age=0');
+    header('Pragma: no-cache');
+    header('Referrer-Policy: no-referrer');
+    header('X-Robots-Tag: noindex, nofollow');
 }
 
 function set_flash(string $type, string $message): void

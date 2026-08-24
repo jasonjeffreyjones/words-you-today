@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/mail.php';
 
 const REMEMBER_ME_COOKIE = 'wyt_remember';
 const REMEMBER_ME_DAYS = 3650;
 const PASSWORD_RESET_HOURS = 1;
+const PASSWORD_RESET_EMAIL_LIMIT_PER_HOUR = 3;
+const PASSWORD_RESET_IP_LIMIT_PER_HOUR = 20;
 
 function current_user(): ?array
 {
@@ -15,17 +18,22 @@ function current_user(): ?array
     static $user = null;
 
     if (!empty($_SESSION['user_id'])) {
-        if ($user !== null && (int) $user['id'] === (int) $_SESSION['user_id']) {
+        if (
+            $user !== null
+            && (int) $user['id'] === (int) $_SESSION['user_id']
+            && session_auth_version_is_valid($user)
+        ) {
             return $user;
         }
 
         $user = find_user_by_id((int) $_SESSION['user_id']);
 
-        if ($user !== null) {
+        if ($user !== null && session_auth_version_is_valid($user)) {
             return $user;
         }
 
-        unset($_SESSION['user_id']);
+        clear_current_authentication();
+        $user = null;
     }
 
     $user = login_user_from_remember_cookie();
@@ -35,6 +43,30 @@ function current_user(): ?array
     }
 
     return null;
+}
+
+function session_auth_version_is_valid(array $user): bool
+{
+    $userAuthVersion = (int) ($user['auth_version'] ?? 0);
+
+    if (!isset($_SESSION['auth_version'])) {
+        // Adopt sessions created before auth versioning without logging everyone out.
+        // Once this user's version changes, an unversioned session is no longer valid.
+        if ($userAuthVersion === 1) {
+            $_SESSION['auth_version'] = 1;
+            return true;
+        }
+
+        return false;
+    }
+
+    return $userAuthVersion > 0 && (int) $_SESSION['auth_version'] === $userAuthVersion;
+}
+
+function clear_current_authentication(): void
+{
+    clear_remember_me_cookie();
+    unset($_SESSION['user_id'], $_SESSION['auth_version']);
 }
 
 function require_login(): array
@@ -54,6 +86,7 @@ function login_user(array $user): void
     start_session_if_needed();
     session_regenerate_id(true);
     $_SESSION['user_id'] = (int) $user['id'];
+    $_SESSION['auth_version'] = (int) ($user['auth_version'] ?? 1);
     issue_remember_me_cookie((int) $user['id']);
 }
 
@@ -85,12 +118,15 @@ function create_user(string $email, string $password): array
     return [
         'id' => (int) db()->lastInsertId(),
         'email' => $email,
+        'auth_version' => 1,
     ];
 }
 
 function find_user_by_id(int $id): ?array
 {
-    $statement = db()->prepare('SELECT id, email, password_hash, created_at FROM users WHERE id = :id');
+    $statement = db()->prepare(
+        'SELECT id, email, password_hash, auth_version, created_at FROM users WHERE id = :id'
+    );
     $statement->execute(['id' => $id]);
 
     return $statement->fetch() ?: null;
@@ -115,9 +151,18 @@ function update_user_email(int $userId, string $email): void
 
 function update_user_password(int $userId, string $password): void
 {
-    $statement = db()->prepare('UPDATE users SET password_hash = :password_hash WHERE id = :id');
+    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+    if ($passwordHash === false) {
+        throw new RuntimeException('Could not securely hash the new password.');
+    }
+
+    $statement = db()->prepare(
+        'UPDATE users
+         SET password_hash = :password_hash, auth_version = auth_version + 1
+         WHERE id = :id'
+    );
     $statement->execute([
-        'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+        'password_hash' => $passwordHash,
         'id' => $userId,
     ]);
 }
@@ -130,7 +175,8 @@ function delete_password_reset_tokens_for_user(int $userId): void
 
 function create_password_reset_token(int $userId): string
 {
-    delete_password_reset_tokens_for_user($userId);
+    $deleteExpired = db()->prepare('DELETE FROM password_reset_tokens WHERE expires_at <= :now');
+    $deleteExpired->execute(['now' => gmdate('Y-m-d H:i:s')]);
 
     $token = bin2hex(random_bytes(32));
     $statement = db()->prepare(
@@ -147,15 +193,26 @@ function create_password_reset_token(int $userId): string
 
 function find_password_reset_request(string $token): ?array
 {
+    if (preg_match('/\A[a-f0-9]{64}\z/i', $token) !== 1) {
+        return null;
+    }
+
+    return find_password_reset_request_by_hash(hash('sha256', $token));
+}
+
+function find_password_reset_request_by_hash(string $tokenHash): ?array
+{
+    if (preg_match('/\A[a-f0-9]{64}\z/', $tokenHash) !== 1) {
+        return null;
+    }
+
     $statement = db()->prepare(
         'SELECT password_reset_tokens.id, password_reset_tokens.user_id, password_reset_tokens.expires_at, users.email
          FROM password_reset_tokens
          INNER JOIN users ON users.id = password_reset_tokens.user_id
          WHERE token_hash = :token_hash'
     );
-    $statement->execute([
-        'token_hash' => hash('sha256', $token),
-    ]);
+    $statement->execute(['token_hash' => $tokenHash]);
 
     $request = $statement->fetch() ?: null;
 
@@ -163,7 +220,8 @@ function find_password_reset_request(string $token): ?array
         return null;
     }
 
-    if (strtotime((string) $request['expires_at']) < time()) {
+    $expiresAt = strtotime((string) $request['expires_at']);
+    if ($expiresAt === false || $expiresAt <= time()) {
         delete_password_reset_token((int) $request['id']);
         return null;
     }
@@ -175,6 +233,161 @@ function delete_password_reset_token(int $tokenId): void
 {
     $statement = db()->prepare('DELETE FROM password_reset_tokens WHERE id = :id');
     $statement->execute(['id' => $tokenId]);
+}
+
+function delete_password_reset_token_by_value(string $token): void
+{
+    if (preg_match('/\A[a-f0-9]{64}\z/i', $token) !== 1) {
+        return;
+    }
+
+    $statement = db()->prepare('DELETE FROM password_reset_tokens WHERE token_hash = :token_hash');
+    $statement->execute(['token_hash' => hash('sha256', $token)]);
+}
+
+function request_password_reset(string $email, string $requestIp): void
+{
+    if (password_reset_request_is_rate_limited($email, $requestIp)) {
+        return;
+    }
+
+    $user = find_user_by_email($email);
+    if ($user === null) {
+        return;
+    }
+
+    $token = create_password_reset_token((int) $user['id']);
+    $sent = wyt_mail_send_password_reset((string) $user['email'], password_reset_url($token));
+
+    if (!$sent) {
+        delete_password_reset_token_by_value($token);
+    }
+}
+
+function password_reset_request_is_rate_limited(string $email, string $requestIp): bool
+{
+    $secret = hash_hmac('sha256', 'wyt-password-reset-rate-limit', DB_PASS, true);
+    $emailHash = hash_hmac('sha256', 'email:' . strtolower(trim($email)), $secret);
+    $ipHash = hash_hmac('sha256', 'ip:' . trim($requestIp), $secret);
+    $connection = db();
+
+    $cleanup = $connection->prepare(
+        'DELETE FROM password_reset_attempts WHERE requested_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)'
+    );
+    $cleanup->execute();
+
+    $emailCount = password_reset_attempt_count('email_hash', $emailHash);
+    $ipCount = password_reset_attempt_count('ip_hash', $ipHash);
+
+    if (
+        $emailCount >= PASSWORD_RESET_EMAIL_LIMIT_PER_HOUR
+        || $ipCount >= PASSWORD_RESET_IP_LIMIT_PER_HOUR
+    ) {
+        return true;
+    }
+
+    $insert = $connection->prepare(
+        'INSERT INTO password_reset_attempts (email_hash, ip_hash, requested_at)
+         VALUES (:email_hash, :ip_hash, NOW())'
+    );
+    $insert->execute([
+        'email_hash' => $emailHash,
+        'ip_hash' => $ipHash,
+    ]);
+
+    return false;
+}
+
+function password_reset_attempt_count(string $column, string $identifierHash): int
+{
+    if ($column !== 'email_hash' && $column !== 'ip_hash') {
+        throw new InvalidArgumentException('Invalid password reset rate-limit column.');
+    }
+
+    $statement = db()->prepare(
+        'SELECT COUNT(*) AS attempt_count
+         FROM password_reset_attempts
+         WHERE ' . $column . ' = :identifier_hash
+           AND requested_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)'
+    );
+    $statement->execute(['identifier_hash' => $identifierHash]);
+    $row = $statement->fetch();
+
+    return $row === false ? 0 : (int) $row['attempt_count'];
+}
+
+function reset_password_with_token_hash(string $tokenHash, string $password): ?array
+{
+    if (preg_match('/\A[a-f0-9]{64}\z/', $tokenHash) !== 1) {
+        return null;
+    }
+
+    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+    if ($passwordHash === false) {
+        throw new RuntimeException('Could not securely hash the new password.');
+    }
+
+    $connection = db();
+    $connection->beginTransaction();
+
+    try {
+        $statement = $connection->prepare(
+            'SELECT password_reset_tokens.id, password_reset_tokens.user_id,
+                    password_reset_tokens.expires_at, users.email
+             FROM password_reset_tokens
+             INNER JOIN users ON users.id = password_reset_tokens.user_id
+             WHERE password_reset_tokens.token_hash = :token_hash
+             FOR UPDATE'
+        );
+        $statement->execute(['token_hash' => $tokenHash]);
+        $request = $statement->fetch() ?: null;
+
+        if ($request === null) {
+            $connection->rollBack();
+            return null;
+        }
+
+        $expiresAt = strtotime((string) $request['expires_at']);
+        if ($expiresAt === false || $expiresAt <= time()) {
+            $deleteExpired = $connection->prepare('DELETE FROM password_reset_tokens WHERE id = :id');
+            $deleteExpired->execute(['id' => (int) $request['id']]);
+            $connection->commit();
+            return null;
+        }
+
+        $userId = (int) $request['user_id'];
+        $updatePassword = $connection->prepare(
+            'UPDATE users
+             SET password_hash = :password_hash, auth_version = auth_version + 1
+             WHERE id = :id'
+        );
+        $updatePassword->execute([
+            'password_hash' => $passwordHash,
+            'id' => $userId,
+        ]);
+
+        $deleteResetTokens = $connection->prepare(
+            'DELETE FROM password_reset_tokens WHERE user_id = :user_id'
+        );
+        $deleteResetTokens->execute(['user_id' => $userId]);
+
+        $deleteRememberTokens = $connection->prepare(
+            'DELETE FROM user_remember_tokens WHERE user_id = :user_id'
+        );
+        $deleteRememberTokens->execute(['user_id' => $userId]);
+
+        $connection->commit();
+
+        return [
+            'user_id' => $userId,
+            'email' => (string) $request['email'],
+        ];
+    } catch (Throwable $exception) {
+        if ($connection->inTransaction()) {
+            $connection->rollBack();
+        }
+        throw $exception;
+    }
 }
 
 function password_reset_url(string $token): string

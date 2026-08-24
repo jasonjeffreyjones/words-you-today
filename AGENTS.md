@@ -22,7 +22,7 @@ In the main interface, the user is shown one identity signifier and asked to end
 They swipe to answer Yes or No.
 Then another signifier is presented.
 
-After providng some signifier resposonses, users can explore their data and compare it to the aggregate data.  For example: which signifiers do I endorse that most users don't?  Which combination of two endorsed signifiers is most unusual?
+After providng some signifier responses, users can explore their data and compare it to the aggregate data.  For example: which signifiers do I endorse that most users don't?  Which combination of two endorsed signifiers is most unusual?
 
 Right now I can foresee several main pieces of the structure.
 1) Home contains a welcome message.  Greet the user if they are logged in.  A brief explanation of how the app works.  A big, inviting Start button that sends the user to the main WYT interface.

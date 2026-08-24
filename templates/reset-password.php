@@ -14,7 +14,6 @@
     <?php else: ?>
       <form method="post" action="<?= h(app_url('reset-password.php')) ?>" class="card card-body shadow-sm auth-card auth-card-login">
         <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-        <input type="hidden" name="token" value="<?= h($token) ?>">
         <div class="mb-3">
           <label for="password" class="form-label">New password</label>
           <input id="password" name="password" type="password" class="form-control" required minlength="8">
